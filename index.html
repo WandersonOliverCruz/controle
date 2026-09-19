@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema TI — Controle de Equipamentos e Chamados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body class="bg-slate-50 font-sans min-h-screen">
+    <div id="tela-login" class="login-container">
+        <div class="fundo-personalizado"></div>
+        <div class="camada-sobreposicao"></div>
+        <div class="login-blur login-blur-1"></div>
+        <div class="login-blur login-blur-2"></div>
+        <div class="login-card">
+            <div class="login-logo-area">
+                <div id="area-logo-login" class="login-logo-wrapper">
+                    <div class="login-logo-placeholder"><i class="fa-solid fa-desktop"></i></div>
+                </div>
+            </div>
+            <div class="text-center mb-6">
+                <h1 class="login-title">Sistema TI</h1>
+                <p class="login-subtitle">Controle de Equipamentos e Chamados</p>
+            </div>
+            <form id="form-login" class="space-y-4">
+                <div>
+                    <label class="login-label"><i class="fa-solid fa-user"></i> Usuário</label>
+                    <div class="login-input-wrapper">
+                        <i class="fa-solid fa-user login-input-icon"></i>
+                        <input type="text" id="login-usuario" class="login-input" placeholder="Digite seu usuário" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="login-label"><i class="fa-solid fa-lock"></i> Senha</label>
+                    <div class="login-input-wrapper">
+                        <i class="fa-solid fa-lock login-input-icon"></i>
+                        <input type="password" id="login-senha" class="login-input" placeholder="Digite sua senha" required>
+                        <button type="button" id="btn-mostrar-senha" class="login-password-toggle"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                </div>
+                <div id="mensagem-erro" class="login-error hidden"></div>
+                <button type="submit" class="login-button"><i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema</button>
+            </form>
+        </div>
+        <div class="login-copyright">© <span id="ano-atual"></span> Sistema TI</div>
+    </div>
+
+    <div id="sistema" class="hidden sistema-container">
+        <div class="fundo-sistema-personalizado"></div>
+        <div class="camada-sistema-sobreposicao"></div>
+        
+        <aside class="sidebar relative z-10">
+            <div class="sidebar-logo">
+                <div id="area-logo-menu" class="sidebar-logo-area">
+                    <div class="sidebar-logo-placeholder"><i class="fa-solid fa-desktop"></i></div>
+                    <span>Sistema TI</span>
+                </div>
+            </div>
+            <nav class="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto" id="menu-principal"></nav>
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="min-w-0">
+                        <p id="nome-usuario-menu" class="font-semibold text-xs text-slate-900 truncate">Usuário</p>
+                        <p id="perfil-usuario-menu" class="text-[11px] text-slate-500">Usuário</p>
+                    </div>
+                </div>
+                <button id="btn-sair" class="logout-button"><i class="fa-solid fa-right-from-bracket"></i> Sair do Sistema</button>
+            </div>
+        </aside>
+        <main class="flex-1 overflow-auto flex flex-col relative z-10">
+            <header class="main-header">
+                <div class="max-w-[1400px] w-full mx-auto flex justify-between items-center px-4">
+                    <div>
+                        <p class="text-[11px] text-slate-500 uppercase font-semibold tracking-wider">Sistema de Tecnologia</p>
+                        <h2 id="titulo-pagina" class="text-lg font-bold text-slate-900">Painel Principal</h2>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="header-date"><i class="fa-solid fa-calendar text-slate-400"></i><span id="data-hora"></span></div>
+                        <div id="perfil-usuario" class="profile-badge"></div>
+                    </div>
+                </div>
+            </header>
+            <div class="p-8 flex-1 w-full flex justify-center">
+                <div id="conteudo-pagina" class="w-full"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="funcoes.js"></script>
+</body>
+</html>
