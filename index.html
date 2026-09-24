@@ -3,139 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema TI - Controle de Equipamentos e Chamados</title>
-    
-    <!-- CSS da Aplicação -->
-    <link rel="stylesheet" href="css/style.css">
-    
-    <!-- Ícones (Font Awesome) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Sistema TI — Controle de Equipamentos e Chamados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="estilo.css">
 </head>
-<body>
-
-    <div id="app">
-        <!-- Navegação Lateral -->
-        <aside class="sidebar">
-            <div class="brand">
-                <i class="fa-solid fa-server"></i>
-                <span>Sistema TI</span>
+<body class="bg-slate-50 font-sans min-h-screen">
+    <div id="tela-login" class="login-container">
+        <div class="fundo-personalizado"></div>
+        <div class="camada-sobreposicao"></div>
+        <div class="login-blur login-blur-1"></div>
+        <div class="login-blur login-blur-2"></div>
+        <div class="login-card">
+            <div class="login-logo-area">
+                <div id="area-logo-login" class="login-logo-wrapper">
+                    <div class="login-logo-placeholder"><i class="fa-solid fa-desktop"></i></div>
+                </div>
             </div>
-            <nav class="menu">
-                <a href="#dashboard" class="menu-item active" data-page="dashboard">
-                    <i class="fa-solid fa-chart-pie"></i> Painel Principal
-                </a>
-                <a href="#equipamentos" class="menu-item" data-page="equipamentos">
-                    <i class="fa-solid fa-laptop"></i> Equipamentos
-                </a>
-                <a href="#chamados" class="menu-item" data-page="chamados">
-                    <i class="fa-solid fa-headset"></i> Chamados
-                </a>
-            </nav>
-        </aside>
+            <div class="text-center mb-6">
+                <h1 class="login-title">Sistema TI</h1>
+                <p class="login-subtitle">Controle de Equipamentos e Chamados</p>
+            </div>
+            <form id="form-login" class="space-y-4">
+                <div>
+                    <label class="login-label"><i class="fa-solid fa-user"></i> Usuário</label>
+                    <div class="login-input-wrapper">
+                        <i class="fa-solid fa-user login-input-icon"></i>
+                        <input type="text" id="login-usuario" class="login-input" placeholder="Digite seu usuário" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="login-label"><i class="fa-solid fa-lock"></i> Senha</label>
+                    <div class="login-input-wrapper">
+                        <i class="fa-solid fa-lock login-input-icon"></i>
+                        <input type="password" id="login-senha" class="login-input" placeholder="Digite sua senha" required>
+                        <button type="button" id="btn-mostrar-senha" class="login-password-toggle"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                </div>
+                <div id="mensagem-erro" class="login-error hidden"></div>
+                <button type="submit" class="login-button"><i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema</button>
+            </form>
+        </div>
+        <div class="login-copyright">© <span id="ano-atual"></span> Sistema TI</div>
+    </div>
 
-        <!-- Conteúdo Principal -->
-        <main class="content">
-            <header class="topbar">
-                <h2>Controle de TI</h2>
-                <div class="user-info">
-                    <i class="fa-solid fa-user-circle"></i>
-                    <span>Técnico Responsável</span>
+    <div id="sistema" class="hidden sistema-container">
+        <div class="fundo-sistema-personalizado"></div>
+        <div class="camada-sistema-sobreposicao"></div>
+        
+        <aside class="sidebar relative z-10">
+            <div class="sidebar-logo">
+                <div id="area-logo-menu" class="sidebar-logo-area">
+                    <div class="sidebar-logo-placeholder"><i class="fa-solid fa-desktop"></i></div>
+                    <span>Sistema TI</span>
+                </div>
+            </div>
+            <nav class="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto" id="menu-principal"></nav>
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="min-w-0">
+                        <p id="nome-usuario-menu" class="font-semibold text-xs text-slate-900 truncate">Usuário</p>
+                        <p id="perfil-usuario-menu" class="text-[11px] text-slate-500">Usuário</p>
+                    </div>
+                </div>
+                <button id="btn-sair" class="logout-button"><i class="fa-solid fa-right-from-bracket"></i> Sair do Sistema</button>
+            </div>
+        </aside>
+        <main class="flex-1 overflow-auto flex flex-col relative z-10">
+            <header class="main-header">
+                <div class="max-w-[1400px] w-full mx-auto flex justify-between items-center px-4">
+                    <div>
+                        <p class="text-[11px] text-slate-500 uppercase font-semibold tracking-wider">Sistema de Tecnologia</p>
+                        <h2 id="titulo-pagina" class="text-lg font-bold text-slate-900">Painel Principal</h2>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="header-date"><i class="fa-solid fa-calendar text-slate-400"></i><span id="data-hora"></span></div>
+                        <div id="perfil-usuario" class="profile-badge"></div>
+                    </div>
                 </div>
             </header>
-
-            <div class="container">
-                <!-- Seção: Dashboard -->
-                <section id="sec-dashboard" class="page-section">
-                    <h3>Visão Geral</h3>
-                    <div class="cards-grid">
-                        <div class="card">
-                            <h4>Equipamentos</h4>
-                            <p id="total-equipamentos">0</p>
-                        </div>
-                        <div class="card">
-                            <h4>Chamados Abertos</h4>
-                            <p id="total-chamados">0</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Seção: Cadastro e Lista de Equipamentos -->
-                <section id="sec-equipamentos" class="page-section hidden">
-                    <h3>Gestão de Equipamentos</h3>
-                    
-                    <form id="form-equipamento" class="form-box">
-                        <input type="text" id="eq-nome" placeholder="Nome do Equipamento (ex: Dell Optiplex)" required>
-                        <input type="text" id="eq-setor" placeholder="Setor (ex: Financeiro)" required>
-                        <select id="eq-status" required>
-                            <option value="Em uso">Em uso</option>
-                            <option value="Disponível">Disponível</option>
-                            <option value="Manutenção">Manutenção</option>
-                        </select>
-                        <button type="submit" class="btn btn-primary">Cadastrar Equipamento</button>
-                    </form>
-
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>Setor</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabela-equipamentos">
-                                <!-- Preenchido dinamicamente via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Seção: Chamados -->
-                <section id="sec-chamados" class="page-section hidden">
-                    <h3>Central de Chamados</h3>
-                    
-                    <form id="form-chamado" class="form-box">
-                        <input type="text" id="ch-titulo" placeholder="Título do Problema" required>
-                        <textarea id="ch-descricao" placeholder="Descrição detalhada" required></textarea>
-                        <select id="ch-prioridade" required>
-                            <option value="Baixa">Prioridade Baixa</option>
-                            <option value="Média">Prioridade Média</option>
-                            <option value="Alta">Prioridade Alta</option>
-                        </select>
-                        <button type="submit" class="btn btn-primary">Abrir Chamado</button>
-                    </form>
-
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Título</th>
-                                    <th>Prioridade</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabela-chamados">
-                                <!-- Preenchido dinamicamente via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+            <div class="p-8 flex-1 w-full flex justify-center">
+                <div id="conteudo-pagina" class="w-full"></div>
             </div>
         </main>
     </div>
 
-    <!-- 1. SDK Supabase Oficial via CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- 2. Credenciais de Conexão com o Supabase -->
-    <script src="js/supabase-config.js"></script>
-
-    <!-- 3. Camada de Funções do Banco de Dados (CRUD) -->
-    <script src="js/funcoes.js"></script>
-
-    <!-- 4. Lógica de Interface e Eventos da Aplicação -->
-    <script src="js/app.js"></script>
+    <script src="funcoes.js"></script>
 </body>
 </html>
