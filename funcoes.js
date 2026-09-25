@@ -1,4 +1,4 @@
-
+// CONFIGURAÇÃO DO SUPABASE (Substitua pelos seus dados do Dashboard Supabase)
 const SUPABASE_URL = "https://legfoltyfnypowhnscwe.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BJ7VdB4lwxbrSoQa-hFDXw_XdOIkk-r";
 
