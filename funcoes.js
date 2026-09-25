@@ -731,13 +731,59 @@ async function imprimirRelatorioMeusChamados() {
 }
 
 // ==========================================
-// 5. GERENCIAR USUÁRIOS
+// 5. GERENCIAR USUÁRIOS E PERMISSÕES
 // ==========================================
 async function carregarUsuarios(container) {
+    container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando usuários...</div>`;
+
+    // Busca todos os perfis e setores do Supabase
     const { data: perfis } = await supabaseClient.from('perfis').select('*');
+    const { data: setores } = await supabaseClient.from('setores_liberacoes').select('*');
+
     const listaPerfis = perfis || [];
+    const listaSetores = setores || [];
 
     container.innerHTML = `
+        <!-- FORMULÁRIO DE CRIAÇÃO DE NOVO USUÁRIO -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6 w-full">
+            <h3 class="font-bold text-slate-900 text-sm mb-4">Cadastrar Novo Usuário e Definir Nível de Acesso</h3>
+            <form id="form-criar-usuario" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input type="text" id="us-nome" placeholder="Nome Completo" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900">
+                <input type="text" id="us-login" placeholder="Nome de Usuário (ex: joao.silva)" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900">
+                <input type="email" id="us-email" placeholder="E-mail Corporativo" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900">
+                <input type="password" id="us-senha" placeholder="Senha Inicial" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900">
+                
+                <select id="us-setor" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900">
+                    <option value="">Selecione o Setor</option>
+                    ${listaSetores.map(s => `<option value="${escapeHTML(s.nome)}">${escapeHTML(s.nome)}</option>`).join('')}
+                </select>
+
+                <select id="us-perfil" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900">
+                    <option value="USER">Usuário Padrão</option>
+                    <option value="ADM">Administrador (Acesso Total)</option>
+                </select>
+
+                <div class="sm:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <label class="block text-xs font-bold text-slate-800 mb-2">Módulos Liberados para Acesso:</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        ${MODULOS_SISTEMA.map(m => `
+                            <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                                <input type="checkbox" name="us-permissoes" value="${m.id}" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                                ${m.nome}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div id="msg-erro-usuario" class="sm:col-span-2 text-rose-600 text-xs hidden"></div>
+
+                <button type="submit" id="btn-salvar-usuario" class="sm:col-span-2 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-white font-bold text-xs shadow-sm transition">
+                    Cadastrar Usuário
+                </button>
+            </form>
+        </div>
+
+        <!-- LISTA DE USUÁRIOS E EDIÇÃO -->
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-slate-900 text-sm">Usuários Cadastrados no Banco</h3>
@@ -748,43 +794,182 @@ async function carregarUsuarios(container) {
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-700">
                     <thead class="bg-slate-50 uppercase text-[10px] text-slate-500">
-                        <tr><th class="p-3">Nome / Usuário</th><th class="p-3">Setor</th><th class="p-3">Perfil</th></tr>
+                        <tr>
+                            <th class="p-3">Nome / Usuário</th>
+                            <th class="p-3">Setor</th>
+                            <th class="p-3">Nível de Perfil</th>
+                            <th class="p-3">Módulos Acessíveis</th>
+                            <th class="p-3 text-right">Ações</th>
+                        </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        ${listaPerfis.map(u => `
-                            <tr>
-                                <td class="p-3 font-bold">${escapeHTML(u.nome)}<br><span class="font-normal text-slate-400">@${escapeHTML(u.usuario)}</span></td>
-                                <td class="p-3">${escapeHTML(u.setor || 'N/A')}</td>
-                                <td class="p-3 font-semibold">${escapeHTML(u.perfil)}</td>
-                            </tr>
-                        `).join('')}
+                        ${listaPerfis.map(u => {
+                            const modulosAcesso = u.permissoes ? u.permissoes.length : 0;
+                            return `
+                                <tr>
+                                    <td class="p-3 font-bold">${escapeHTML(u.nome)}<br><span class="font-normal text-slate-400">@${escapeHTML(u.usuario)}</span></td>
+                                    <td class="p-3">${escapeHTML(u.setor || 'Não Informado')}</td>
+                                    <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${u.perfil === 'ADM' ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'}">${escapeHTML(u.perfil)}</span></td>
+                                    <td class="p-3 font-semibold text-emerald-600">${modulosAcesso} de${MODULOS_SISTEMA.length} módulos</td>
+                                    <td class="p-3 text-right">
+                                        <button onclick="abrirModalEditarPermissao('${u.id}', '${escapeHTML(u.nome)}', '${u.perfil}', '${u.setor \vert{}\vert{} ''}', '${(u.permissoes || []).join(',')}')" class="text-xs bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg font-bold text-slate-700">
+                                            <i class="fa-solid fa-pen-to-square"></i> Alterar Permissões
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- MODAL DE EDIÇÃO DE PERMISSÕES -->
+        <div id="modal-editar-permissao" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl">
+                <h3 class="font-bold text-slate-900 text-base mb-1" id="modal-usr-titulo">Alterar Permissões</h3>
+                <p class="text-xs text-slate-500 mb-4">Modifique o nível de acesso e as telas visíveis para este usuário.</p>
+                
+                <input type="hidden" id="edit-usr-id">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Perfil de Acesso</label>
+                        <select id="edit-usr-perfil" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
+                            <option value="USER">Usuário Padrão</option>
+                            <option value="ADM">Administrador (Acesso Total)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Setor</label>
+                        <select id="edit-usr-setor" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
+                            ${listaSetores.map(s => `<option value="${escapeHTML(s.nome)}">${escapeHTML(s.nome)}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold mb-2">Módulos Liberados:</label>
+                        <div class="grid grid-cols-2 gap-2" id="box-permissoes-edit">
+                            ${MODULOS_SISTEMA.map(m => `
+                                <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                                    <input type="checkbox" value="${m.id}" class="chk-edit-perm rounded border-slate-300 text-emerald-600">
+                                    ${m.nome}
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" onclick="fecharModalEditar()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200">Cancelar</button>
+                    <button type="button" onclick="salvarAlteracaoPermissao()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
     `;
+
+    // Evento de Submissão do Formulário de Criação de Usuário
+    document.getElementById('form-criar-usuario').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const nome = document.getElementById('us-nome').value.trim();
+        const usuario = document.getElementById('us-login').value.trim().toLowerCase();
+        const email = document.getElementById('us-email').value.trim();
+        const senha = document.getElementById('us-senha').value;
+        const setor = document.getElementById('us-setor').value;
+        const perfil = document.getElementById('us-perfil').value;
+        const msgErro = document.getElementById('msg-erro-usuario');
+        const btnSubmit = document.getElementById('btn-salvar-usuario');
+
+        const checkboxes = document.querySelectorAll('input[name="us-permissoes"]:checked');
+        const permissoes = Array.from(checkboxes).map(cb => cb.value);
+
+        msgErro.classList.add('hidden');
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Cadastrando...`;
+
+        try {
+            // 1. Cria o utilizador no Supabase Auth
+            const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+                email: email,
+                password: senha,
+                options: {
+                    data: { nome_completo: nome }
+                }
+            });
+
+            if (authError) throw authError;
+
+            if (authData.user) {
+                // 2. Insere/Atualiza os dados de permissão na tabela 'perfis'
+                const { error: perfilError } = await supabaseClient.from('perfis').insert([{
+                    id: authData.user.id,
+                    nome: nome,
+                    usuario: usuario,
+                    perfil: perfil,
+                    setor: setor,
+                    permissoes: permissoes
+                }]);
+
+                if (perfilError) throw perfilError;
+
+                alert('Usuário cadastrado com sucesso!');
+                carregarUsuarios(container);
+            }
+        } catch (err) {
+            msgErro.textContent = err.message || 'Erro ao cadastrar usuário.';
+            msgErro.classList.remove('hidden');
+        } finally {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = `Cadastrar Usuário`;
+        }
+    });
 }
 
-async function imprimirRelatorioUsuarios() {
-    const { data: perfis } = await supabaseClient.from('perfis').select('*');
-    const htmlTabela = `
-        <table>
-            <thead>
-                <tr><th>Nome</th><th>Usuário</th><th>Setor</th><th>Perfil</th></tr>
-            </thead>
-            <tbody>
-                ${(perfis || []).map(u => `
-                    <tr>
-                        <td><b>${escapeHTML(u.nome)}</b></td>
-                        <td>@${escapeHTML(u.usuario)}</td>
-                        <td>${escapeHTML(u.setor || 'N/A')}</td>
-                        <td>${escapeHTML(u.perfil)}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-    dispararImpressao('Relatório de Usuários e Perfis', htmlTabela);
+// Funções Auxiliares do Modal de Edição
+function abrirModalEditarPermissao(id, nome, perfil, setor, permissoesStr) {
+    document.getElementById('edit-usr-id').value = id;
+    document.getElementById('modal-usr-titulo').textContent = `Alterar Permissões: ${nome}`;
+    document.getElementById('edit-usr-perfil').value = perfil;
+    document.getElementById('edit-usr-setor').value = setor;
+
+    const listaPermissoes = permissoesStr ? permissoesStr.split(',') : [];
+    const checkboxes = document.querySelectorAll('.chk-edit-perm');
+    checkboxes.forEach(cb => {
+        cb.checked = listaPermissoes.includes(cb.value);
+    });
+
+    document.getElementById('modal-editar-permissao').classList.remove('hidden');
+}
+
+function fecharModalEditar() {
+    document.getElementById('modal-editar-permissao').classList.add('hidden');
+}
+
+async function salvarAlteracaoPermissao() {
+    const id = document.getElementById('edit-usr-id').value;
+    const perfil = document.getElementById('edit-usr-perfil').value;
+    const setor = document.getElementById('edit-usr-setor').value;
+
+    const checkboxes = document.querySelectorAll('.chk-edit-perm:checked');
+    const permissoes = Array.from(checkboxes).map(cb => cb.value);
+
+    const { error } = await supabaseClient
+        .from('perfis')
+        .update({
+            perfil: perfil,
+            setor: setor,
+            permissoes: permissoes
+        })
+        .eq('id', id);
+
+    if (error) {
+        alert('Erro ao atualizar permissões: ' + error.message);
+    } else {
+        alert('Permissões do usuário atualizadas com sucesso!');
+        fecharModalEditar();
+        carregarUsuarios(document.getElementById('conteudo-pagina'));
+    }
 }
 
 // ==========================================
