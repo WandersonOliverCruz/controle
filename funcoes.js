@@ -739,7 +739,6 @@ async function imprimirRelatorioMeusChamados() {
 async function carregarUsuarios(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando usuários...</div>`;
 
-    // Busca todos os perfis e setores do Supabase
     const { data: perfis } = await supabaseClient.from('perfis').select('*');
     const { data: setores } = await supabaseClient.from('setores_liberacoes').select('*');
 
@@ -747,7 +746,6 @@ async function carregarUsuarios(container) {
     const listaSetores = setores || [];
 
     container.innerHTML = `
-        <!-- FORMULÁRIO DE CRIAÇÃO DE NOVO USUÁRIO -->
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6 w-full">
             <h3 class="font-bold text-slate-900 text-sm mb-4">Cadastrar Novo Usuário e Definir Nível de Acesso</h3>
             <form id="form-criar-usuario" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -786,7 +784,6 @@ async function carregarUsuarios(container) {
             </form>
         </div>
 
-        <!-- LISTA DE USUÁRIOS E EDIÇÃO -->
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-slate-900 text-sm">Usuários Cadastrados no Banco</h3>
@@ -827,7 +824,6 @@ async function carregarUsuarios(container) {
             </div>
         </div>
 
-        <!-- MODAL DE EDIÇÃO DE PERMISSÕES -->
         <div id="modal-editar-permissao" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
             <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl">
                 <h3 class="font-bold text-slate-900 text-base mb-1" id="modal-usr-titulo">Alterar Permissões</h3>
@@ -871,7 +867,6 @@ async function carregarUsuarios(container) {
         </div>
     `;
 
-    // Evento de Submissão do Formulário de Criação de Usuário
     document.getElementById('form-criar-usuario').addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -889,10 +884,9 @@ async function carregarUsuarios(container) {
 
         msgErro.classList.add('hidden');
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Cadastrando...`;
+        btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Cadastrating...`;
 
         try {
-            // 1. Cria o utilizador no Supabase Auth
             const { data: authData, error: authError } = await supabaseClient.auth.signUp({
                 email: email,
                 password: senha,
@@ -904,7 +898,6 @@ async function carregarUsuarios(container) {
             if (authError) throw authError;
 
             if (authData.user) {
-                // 2. Insere/Atualiza os dados de permissão na tabela 'perfis'
                 const { error: perfilError } = await supabaseClient.from('perfis').insert([{
                     id: authData.user.id,
                     nome: nome,
@@ -927,52 +920,6 @@ async function carregarUsuarios(container) {
             btnSubmit.innerHTML = `Cadastrar Usuário`;
         }
     });
-}
-
-// Funções Auxiliares do Modal de Edição
-function abrirModalEditarPermissao(id, nome, perfil, setor, permissoesStr) {
-    document.getElementById('edit-usr-id').value = id;
-    document.getElementById('modal-usr-titulo').textContent = `Alterar Permissões: ${nome}`;
-    document.getElementById('edit-usr-perfil').value = perfil;
-    document.getElementById('edit-usr-setor').value = setor;
-
-    const listaPermissoes = permissoesStr ? permissoesStr.split(',') : [];
-    const checkboxes = document.querySelectorAll('.chk-edit-perm');
-    checkboxes.forEach(cb => {
-        cb.checked = listaPermissoes.includes(cb.value);
-    });
-
-    document.getElementById('modal-editar-permissao').classList.remove('hidden');
-}
-
-function fecharModalEditar() {
-    document.getElementById('modal-editar-permissao').classList.add('hidden');
-}
-
-async function salvarAlteracaoPermissao() {
-    const id = document.getElementById('edit-usr-id').value;
-    const perfil = document.getElementById('edit-usr-perfil').value;
-    const setor = document.getElementById('edit-usr-setor').value;
-
-    const checkboxes = document.querySelectorAll('.chk-edit-perm:checked');
-    const permissoes = Array.from(checkboxes).map(cb => cb.value);
-
-    const { error } = await supabaseClient
-        .from('perfis')
-        .update({
-            perfil: perfil,
-            setor: setor,
-            permissoes: permissoes
-        })
-        .eq('id', id);
-
-    if (error) {
-        alert('Erro ao atualizar permissões: ' + error.message);
-    } else {
-        alert('Permissões do usuário atualizadas com sucesso!');
-        fecharModalEditar();
-        carregarUsuarios(document.getElementById('conteudo-pagina'));
-    }
 }
 
 // ==========================================
