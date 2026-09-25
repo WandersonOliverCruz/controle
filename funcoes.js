@@ -1,12 +1,12 @@
 // ==========================================
 // CONFIGURAÇÃO E INICIALIZAÇÃO DO SUPABASE
 // ==========================================
-// IMPORTANTE: Altere estas duas variáveis com as credenciais do seu painel Supabase
+// IMPORTANTE: Insira aqui a sua URL e a sua chave ANON do painel do Supabase
 const SUPABASE_URL = "https://legfoltyfnypowhnscwe.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BJ7VdB4lwxbrSoQa-hFDXw_XdOIkk-r";
 
-// Cria o cliente atribuindo à variável global sem usar 'const' para evitar conflito com a biblioteca CDN
-supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Utiliza 'supabaseClient' para evitar conflitos com a biblioteca global da CDN
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const MODULOS_SISTEMA = [
     { id: 'painel', nome: 'Painel Principal' },
@@ -22,7 +22,7 @@ let usuarioLogado = null;
 let perfilUsuarioLogado = null;
 let paginaAtual = 'painel';
 
-// Prevenção de vulnerabilidades XSS ao renderizar HTML dinâmico
+// Prevenção contra vulnerabilidades XSS
 function escapeHTML(str) {
     if (!str) return '';
     return String(str)
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(atualizarDataHora, 60000);
     configurarLogin();
 
-    // Verificar se já existe uma sessão ativa no Supabase
+    // Verificar se já existe uma sessão ativa
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (session) {
