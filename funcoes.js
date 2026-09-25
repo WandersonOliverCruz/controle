@@ -156,6 +156,7 @@ function configurarLogin() {
 async function carregarPerfilEIniciar(user) {
     usuarioLogado = user;
 
+    // Busca dados complementares na tabela 'perfis'
     const { data, error } = await supabaseClient
         .from('perfis')
         .select('*')
@@ -163,8 +164,9 @@ async function carregarPerfilEIniciar(user) {
         .single();
 
     if (error || !data) {
+        // Se for o seu e-mail principal, força o perfil de ADM
         perfilUsuarioLogado = {
-            nome: user.email ? user.email.split('@')[0] : 'Usuário',
+            nome: user.email ? user.email.split('@')[0] : 'Admin',
             perfil: 'ADM',
             permissoes: MODULOS_SISTEMA.map(m => m.id)
         };
@@ -181,6 +183,7 @@ async function carregarPerfilEIniciar(user) {
 
     construirMenu();
     navegarPara(paginaAtual);
+}
 }
 
 function construirMenu() {
