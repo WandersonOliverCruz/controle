@@ -1,8 +1,12 @@
-// CONFIGURAÇÃO DO SUPABASE (Substitua pelos seus dados do Dashboard Supabase)
+// ==========================================
+// CONFIGURAÇÃO E INICIALIZAÇÃO DO SUPABASE
+// ==========================================
+// IMPORTANTE: Altere estas duas variáveis com as credenciais do seu painel Supabase
 const SUPABASE_URL = "https://legfoltyfnypowhnscwe.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BJ7VdB4lwxbrSoQa-hFDXw_XdOIkk-r";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Cria o cliente atribuindo à variável global sem usar 'const' para evitar conflito com a biblioteca CDN
+supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const MODULOS_SISTEMA = [
     { id: 'painel', nome: 'Painel Principal' },
@@ -17,9 +21,8 @@ const MODULOS_SISTEMA = [
 let usuarioLogado = null;
 let perfilUsuarioLogado = null;
 let paginaAtual = 'painel';
-let meuGrafico = null;
 
-// Sanitize de HTML para evitar Vulnerabilidades XSS
+// Prevenção de vulnerabilidades XSS ao renderizar HTML dinâmico
 function escapeHTML(str) {
     if (!str) return '';
     return String(str)
@@ -38,10 +41,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(atualizarDataHora, 60000);
     configurarLogin();
 
-    // Verificar se usuário já está autenticado no Supabase
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        await carregarPerfilEIniciar(session.user);
+    // Verificar se já existe uma sessão ativa no Supabase
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            await carregarPerfilEIniciar(session.user);
+        }
+    } catch (err) {
+        console.error("Erro ao verificar sessão ativa:", err);
     }
 });
 
@@ -65,12 +72,16 @@ function configurarLogin() {
             btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Entrando...`;
 
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ 
+                    email: email, 
+                    password: senha 
+                });
+                
                 if (error) throw error;
 
                 await carregarPerfilEIniciar(data.user);
             } catch (err) {
-                erro.textContent = err.message || 'Erro ao realizar login. Verifique as credenciais.';
+                erro.textContent = err.message || 'Erro ao realizar login. Verifique e-mail e senha.';
                 erro.classList.remove('hidden');
             } finally {
                 btnSubmit.disabled = false;
@@ -93,7 +104,7 @@ function configurarLogin() {
     const btnSair = document.getElementById('btn-sair');
     if (btnSair) {
         btnSair.addEventListener('click', async () => {
-            await supabase.auth.signOut();
+            await supabaseClient.auth.signOut();
             usuarioLogado = null;
             perfilUsuarioLogado = null;
             document.getElementById('tela-login').classList.remove('hidden');
@@ -106,17 +117,16 @@ function configurarLogin() {
 async function carregarPerfilEIniciar(user) {
     usuarioLogado = user;
 
-    // Buscar dados estendidos do usuário na tabela `perfis`
-    const { data, error } = await supabase
+    // Busca dados complementares na tabela 'perfis'
+    const { data, error } = await supabaseClient
         .from('perfis')
         .select('*')
         .eq('id', user.id)
         .single();
 
     if (error || !data) {
-        // Perfil genérico básico caso ainda não tenha sido cadastrado na tabela `perfis`
         perfilUsuarioLogado = {
-            nome: user.email.split('@')[0],
+            nome: user.email ? user.email.split('@')[0] : 'Usuário',
             perfil: 'ADM',
             permissoes: MODULOS_SISTEMA.map(m => m.id)
         };
@@ -194,8 +204,8 @@ function navegarPara(pagina) {
 async function carregarPainel(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando indicadores...</div>`;
 
-    const { data: chamados } = await supabase.from('chamados').select('*');
-    const { data: equipamentos } = await supabase.from('equipamentos').select('*');
+    const { data: chamados } = await supabaseClient.from('chamados').select('*');
+    const { data: equipamentos } = await supabaseClient.from('equipamentos').select('*');
 
     const listaChamados = chamados || [];
     const listaEquipamentos = equipamentos || [];
@@ -232,7 +242,7 @@ async function carregarPainel(container) {
 async function carregarEquipamentos(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando equipamentos...</div>`;
 
-    const { data: equipamentos } = await supabase.from('equipamentos').select('*').order('id', { ascending: false });
+    const { data: equipamentos } = await supabaseClient.from('equipamentos').select('*').order('id', { ascending: false });
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6 w-full">
@@ -279,7 +289,7 @@ async function carregarEquipamentos(container) {
 
     document.getElementById('form-equipamento').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await supabase.from('equipamentos').insert([{
+        await supabaseClient.from('equipamentos').insert([{
             patrimonio: document.getElementById('eq-patrimonio').value,
             tipo: document.getElementById('eq-tipo').value,
             marca_modelo: document.getElementById('eq-modelo').value,
@@ -293,7 +303,7 @@ async function carregarEquipamentos(container) {
 
 async function removerEquipamento(id) {
     if (!confirm("Deseja realmente remover este equipamento?")) return;
-    await supabase.from('equipamentos').delete().eq('id', id);
+    await supabaseClient.from('equipamentos').delete().eq('id', id);
     carregarEquipamentos(document.getElementById('conteudo-pagina'));
 }
 
@@ -301,8 +311,8 @@ async function removerEquipamento(id) {
 async function carregarChamados(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando chamados...</div>`;
 
-    const { data: chamados } = await supabase.from('chamados').select('*').order('id', { ascending: false });
-    const { data: categorias } = await supabase.from('categorias_problema').select('*');
+    const { data: chamados } = await supabaseClient.from('chamados').select('*').order('id', { ascending: false });
+    const { data: categorias } = await supabaseClient.from('categorias_problema').select('*');
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6 w-full">
@@ -351,7 +361,7 @@ async function carregarChamados(container) {
 
     document.getElementById('form-chamado').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await supabase.from('chamados').insert([{
+        await supabaseClient.from('chamados').insert([{
             solicitante_id: usuarioLogado.id,
             solicitante_nome: perfilUsuarioLogado.nome,
             categoria: document.getElementById('ch-categoria').value,
@@ -364,7 +374,7 @@ async function carregarChamados(container) {
 }
 
 async function fecharChamado(id) {
-    await supabase.from('chamados').update({ status: 'Concluído' }).eq('id', id);
+    await supabaseClient.from('chamados').update({ status: 'Concluído' }).eq('id', id);
     carregarChamados(document.getElementById('conteudo-pagina'));
 }
 
@@ -372,7 +382,7 @@ async function fecharChamado(id) {
 async function carregarMeusChamados(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando seus chamados...</div>`;
 
-    const { data: meus } = await supabase
+    const { data: meus } = await supabaseClient
         .from('chamados')
         .select('*')
         .eq('solicitante_id', usuarioLogado.id)
@@ -404,7 +414,7 @@ async function carregarMeusChamados(container) {
 
 // 5. GERENCIAR USUÁRIOS
 async function carregarUsuarios(container) {
-    const { data: perfis } = await supabase.from('perfis').select('*');
+    const { data: perfis } = await supabaseClient.from('perfis').select('*');
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
@@ -431,7 +441,7 @@ async function carregarUsuarios(container) {
 
 // 6. CATEGORIAS
 async function carregarCategorias(container) {
-    const { data: categorias } = await supabase.from('categorias_problema').select('*');
+    const { data: categorias } = await supabaseClient.from('categorias_problema').select('*');
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
@@ -449,7 +459,7 @@ async function carregarCategorias(container) {
 
 // 7. SETORES E LIBERAÇÕES
 async function carregarSetores(container) {
-    const { data: setores } = await supabase.from('setores_liberacoes').select('*');
+    const { data: setores } = await supabaseClient.from('setores_liberacoes').select('*');
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
