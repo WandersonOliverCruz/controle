@@ -2,8 +2,8 @@
 // CONFIGURAÇÃO E INICIALIZAÇÃO DO SUPABASE
 // ==========================================
 // IMPORTANTE: Insira aqui a sua URL e a sua chave ANON do painel do Supabase
-const SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
-const SUPABASE_ANON_KEY = "SUA_CHAVE_ANON_PUBLIC_AQUI";
+const SUPABASE_URL = "https://legfoltyfnypowhnscwe.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_BJ7VdB4lwxbrSoQa-hFDXw_XdOIkk-r";
 
 // Utiliza 'supabaseClient' para evitar conflitos com a biblioteca global da CDN
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
