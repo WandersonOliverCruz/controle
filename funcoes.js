@@ -8,6 +8,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_BJ7VdB4lwxbrSoQa-hFDXw_XdOIkk-r";
 // Utiliza 'supabaseClient' para evitar conflitos com a biblioteca global da CDN
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const CONFIG = {
+    sistemaNome: "Sistema TI"
+};
+
 const MODULOS_SISTEMA = [
     { id: 'painel', nome: 'Painel Principal' },
     { id: 'equipamentos', nome: 'Equipamentos' },
@@ -21,6 +25,9 @@ const MODULOS_SISTEMA = [
 let usuarioLogado = null;
 let perfilUsuarioLogado = null;
 let paginaAtual = 'painel';
+let filtroPeriodoAtual = 'mes';
+let meuGrafico = null;
+let dadosChamadosGlobais = [];
 
 // Prevenção contra vulnerabilidades XSS
 function escapeHTML(str) {
@@ -55,6 +62,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 function atualizarDataHora() {
     const el = document.getElementById('data-hora');
     if (el) el.textContent = new Date().toLocaleString('pt-BR');
+}
+
+// Sistema Universal de Impressão de Relatórios
+function dispararImpressao(tituloRelatorio, elementoHtmlConteudo) {
+    const janela = window.open('', '_blank', 'width=900,height=650');
+    janela.document.write(`
+        <html>
+            <head>
+                <title>Relatório - ${tituloRelatorio}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; color: #333; margin: 20px; }
+                    h2 { text-align: center; color: #111; margin-bottom: 5px; }
+                    .info-cabecalho { text-align: center; font-size: 12px; color: #666; margin-bottom: 25px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+                    th { background-color: #f1f5f9; color: #1e293b; }
+                    tr:nth-child(even) { background-color: #f8fafc; }
+                    .rodape-relatorio { margin-top: 30px; font-size: 10px; text-align: center; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <h2>${CONFIG.sistemaNome} - Relatório de ${tituloRelatorio}</h2>
+                <div class="info-cabecalho">Emitido por: ${perfilUsuarioLogado ? escapeHTML(perfilUsuarioLogado.nome) : 'Sistema'} em ${new Date().toLocaleString('pt-BR')}</div>
+                ${elementoHtmlConteudo}
+                <div class="rodape-relatorio">Gerado automaticamente pelo ${CONFIG.sistemaNome}</div>
+                <script>
+                    window.onload = function() { window.print(); window.close(); }
+                </script>
+            </body>
+        </html>
+    `);
+    janela.document.close();
 }
 
 function configurarLogin() {
@@ -117,7 +156,6 @@ function configurarLogin() {
 async function carregarPerfilEIniciar(user) {
     usuarioLogado = user;
 
-    // Busca dados complementares na tabela 'perfis'
     const { data, error } = await supabaseClient
         .from('perfis')
         .select('*')
@@ -200,49 +238,232 @@ function navegarPara(pagina) {
     }
 }
 
-// 1. PAINEL PRINCIPAL
+// ==========================================
+// 1. PAINEL PRINCIPAL & DASHBOARD COM GRÁFICO
+// ==========================================
 async function carregarPainel(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando indicadores...</div>`;
 
     const { data: chamados } = await supabaseClient.from('chamados').select('*');
     const { data: equipamentos } = await supabaseClient.from('equipamentos').select('*');
 
-    const listaChamados = chamados || [];
+    dadosChamadosGlobais = chamados || [];
     const listaEquipamentos = equipamentos || [];
 
-    const abertos = listaChamados.filter(c => c.status === 'Aberto').length;
+    const abertos = dadosChamadosGlobais.filter(c => c.status === 'Aberto').length;
     const ativos = listaEquipamentos.filter(e => e.status === 'Ativo').length;
     const manutencao = listaEquipamentos.filter(e => e.status === 'Manutenção').length;
-    const totalChamados = listaChamados.length;
+    const totalChamados = dadosChamadosGlobais.length;
     const taxaResolucao = totalChamados > 0 ? (((totalChamados - abertos) / totalChamados) * 100).toFixed(1) : 100;
 
     container.innerHTML = `
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6 w-full">
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Equipamentos Ativos</span>
-                <h4 class="text-3xl font-black text-slate-900 mt-1">${ativos}</h4>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Equipamentos Ativos</span>
+                        <h4 class="text-3xl font-black text-slate-900 mt-1">${ativos}</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-desktop"></i>
+                    </div>
+                </div>
             </div>
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Chamados Abertos</span>
-                <h4 class="text-3xl font-black text-rose-600 mt-1">${abertos}</h4>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Chamados Abertos</span>
+                        <h4 class="text-3xl font-black text-rose-600 mt-1">${abertos}</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-ticket"></i>
+                    </div>
+                </div>
             </div>
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Em Manutenção</span>
-                <h4 class="text-3xl font-black text-amber-600 mt-1">${manutencao}</h4>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Em Manutenção</span>
+                        <h4 class="text-3xl font-black text-amber-600 mt-1">${manutencao}</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-gears"></i>
+                    </div>
+                </div>
             </div>
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Taxa de Resolução</span>
-                <h4 class="text-3xl font-black text-emerald-600 mt-1">${taxaResolucao}%</h4>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Taxa de Resolução</span>
+                        <h4 class="text-3xl font-black text-emerald-600 mt-1">${taxaResolucao}%</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-emerald-600"></i> 
+                    Fluxo de Chamados
+                </h3>
+                
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="bg-slate-100 p-1 rounded-xl flex gap-1">
+                        <button onclick="alterarFiltroGrafico('dia')" id="btn-filtro-dia" class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroPeriodoAtual === 'dia' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-900'}">Dia</button>
+                        <button onclick="alterarFiltroGrafico('semana')" id="btn-filtro-semana" class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroPeriodoAtual === 'semana' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-900'}">Semana</button>
+                        <button onclick="alterarFiltroGrafico('mes')" id="btn-filtro-mes" class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroPeriodoAtual === 'mes' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-900'}">Mês</button>
+                    </div>
+
+                    <button onclick="imprimirRelatorioPainel(${ativos}, ${abertos}, ${manutencao}, '${taxaResolucao}')" class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition">
+                        <i class="fa-solid fa-print"></i> Imprimir Relatório
+                    </button>
+                </div>
+            </div>
+            <div class="relative h-72"><canvas id="graficoMes"></canvas></div>
+        </div>
     `;
+    renderizarGraficos();
 }
 
+function alterarFiltroGrafico(tipo) {
+    filtroPeriodoAtual = tipo;
+    ['dia', 'semana', 'mes'].forEach(p => {
+        const btn = document.getElementById(`btn-filtro-${p}`);
+        if (btn) {
+            btn.className = `px-3 py-1 rounded-lg text-xs font-bold transition-all ${p === tipo ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-900'}`;
+        }
+    });
+    renderizarGraficos();
+}
+
+function renderizarGraficos() {
+    let labels = [];
+    let dados = [];
+
+    if (filtroPeriodoAtual === 'dia') {
+        labels = ['08h', '10h', '12h', '14h', '16h', '18h'];
+        dados = new Array(6).fill(0);
+        dadosChamadosGlobais.forEach(c => {
+            if (c.created_at) {
+                const dataObj = new Date(c.created_at);
+                const hora = dataObj.getHours();
+                if (hora >= 8 && hora < 10) dados[0]++;
+                else if (hora >= 10 && hora < 12) dados[1]++;
+                else if (hora >= 12 && hora < 14) dados[2]++;
+                else if (hora >= 14 && hora < 16) dados[3]++;
+                else if (hora >= 16 && hora < 18) dados[4]++;
+                else if (hora >= 18) dados[5]++;
+            }
+        });
+    } else if (filtroPeriodoAtual === 'semana') {
+        labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        dados = new Array(7).fill(0);
+        dadosChamadosGlobais.forEach(c => {
+            if (c.created_at) {
+                const dataObj = new Date(c.created_at);
+                const diaSemana = dataObj.getDay();
+                if (!isNaN(diaSemana)) dados[diaSemana]++;
+            }
+        });
+    } else {
+        labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        dados = new Array(12).fill(0);
+        dadosChamadosGlobais.forEach(c => {
+            if (c.created_at) {
+                const dataObj = new Date(c.created_at);
+                const mesIdx = dataObj.getMonth();
+                if (mesIdx >= 0 && mesIdx < 12) dados[mesIdx]++;
+            }
+        });
+    }
+
+    const ctxMes = document.getElementById('graficoMes');
+
+    if (ctxMes) {
+        if (meuGrafico) meuGrafico.destroy();
+
+        meuGrafico = new Chart(ctxMes, {
+            type: 'bar',
+            data: { 
+                labels: labels, 
+                datasets: [{ 
+                    label: 'Chamados', 
+                    data: dados, 
+                    backgroundColor: '#10b981', 
+                    borderRadius: 6 
+                }] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { precision: 0 } }, 
+                    x: { grid: { display: false } } 
+                } 
+            }
+        });
+    }
+}
+
+function imprimirRelatorioPainel(ativos, abertos, manutencao, taxaResolucao) {
+    let periodoTexto = filtroPeriodoAtual === 'dia' ? 'Diário' : (filtroPeriodoAtual === 'semana' ? 'Semanal' : 'Mensal');
+
+    const htmlConteudo = `
+        <div style="margin-bottom: 20px;">
+            <h3>Resumo Geral do Parque e Atendimentos</h3>
+            <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1;"><b>Equipamentos Ativos:</b> ${ativos}</td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1;"><b>Chamados Abertos:</b> ${abertos}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1;"><b>Em Manutenção:</b> ${manutencao}</td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1;"><b>Taxa de Resolução:</b> ${taxaResolucao}%</td>
+                </tr>
+            </table>
+
+            <h3>Detalhamento dos Chamados — Visão ${periodoTexto}</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Solicitante</th>
+                        <th>Categoria</th>
+                        <th>Status</th>
+                        <th>Prioridade</th>
+                        <th>Data Abertura</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${dadosChamadosGlobais.length > 0 ? dadosChamadosGlobais.map(c => `
+                        <tr>
+                            <td>${escapeHTML(c.solicitante_nome)}</td>
+                            <td>${escapeHTML(c.categoria)}</td>
+                            <td><b>${escapeHTML(c.status)}</b></td>
+                            <td>${escapeHTML(c.prioridade || 'Média')}</td>
+                            <td>${new Date(c.created_at).toLocaleString('pt-BR')}</td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="5" style="text-align:center;">Nenhum chamado registrado.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    dispararImpressao(`Dashboard & Fluxo de Chamados (${filtroPeriodoAtual.toUpperCase()})`, htmlConteudo);
+}
+
+// ==========================================
 // 2. EQUIPAMENTOS
+// ==========================================
 async function carregarEquipamentos(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando equipamentos...</div>`;
 
     const { data: equipamentos } = await supabaseClient.from('equipamentos').select('*').order('id', { ascending: false });
+    const listaEquipamentos = equipamentos || [];
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6 w-full">
@@ -262,14 +483,19 @@ async function carregarEquipamentos(container) {
             </form>
         </div>
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
-            <h3 class="font-bold text-slate-900 text-sm mb-4">Parque de Ativos Cadastrados</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-900 text-sm">Parque de Ativos Cadastrados</h3>
+                <button onclick="imprimirRelatorioEquipamentos()" class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-print"></i> Imprimir Relatório
+                </button>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-700">
                     <thead class="bg-slate-50 uppercase text-[10px] text-slate-500">
                         <tr><th class="p-3">Patrimônio</th><th class="p-3">Tipo / Modelo</th><th class="p-3">Setor</th><th class="p-3">Responsável</th><th class="p-3">Status</th><th class="p-3 text-right">Ações</th></tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        ${(equipamentos || []).map(e => `
+                        ${listaEquipamentos.map(e => `
                             <tr>
                                 <td class="p-3 font-bold text-slate-900">${escapeHTML(e.patrimonio)}</td>
                                 <td class="p-3">${escapeHTML(e.tipo)} -${escapeHTML(e.marca_modelo)}</td>
@@ -301,13 +527,38 @@ async function carregarEquipamentos(container) {
     });
 }
 
+async function imprimirRelatorioEquipamentos() {
+    const { data: equipamentos } = await supabaseClient.from('equipamentos').select('*').order('id', { ascending: false });
+    const htmlTabela = `
+        <table>
+            <thead>
+                <tr><th>Patrimônio</th><th>Tipo / Modelo</th><th>Setor</th><th>Responsável</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                ${(equipamentos || []).map(e => `
+                    <tr>
+                        <td><b>${escapeHTML(e.patrimonio)}</b></td>
+                        <td>${escapeHTML(e.tipo)} -${escapeHTML(e.marca_modelo)}</td>
+                        <td>${escapeHTML(e.setor)}</td>
+                        <td>${escapeHTML(e.responsavel)}</td>
+                        <td>${escapeHTML(e.status)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    dispararImpressao('Parque de Equipamentos e Ativos', htmlTabela);
+}
+
 async function removerEquipamento(id) {
     if (!confirm("Deseja realmente remover este equipamento?")) return;
     await supabaseClient.from('equipamentos').delete().eq('id', id);
     carregarEquipamentos(document.getElementById('conteudo-pagina'));
 }
 
+// ==========================================
 // 3. CENTRAL DE CHAMADOS
+// ==========================================
 async function carregarChamados(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando chamados...</div>`;
 
@@ -333,7 +584,12 @@ async function carregarChamados(container) {
         </div>
         
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
-            <h3 class="font-bold text-slate-900 text-sm mb-4">Todos os Chamados</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-900 text-sm">Todos os Chamados</h3>
+                <button onclick="imprimirRelatorioChamados()" class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-print"></i> Imprimir Relatório
+                </button>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-700">
                     <thead class="bg-slate-50 uppercase text-[10px] text-slate-500">
@@ -373,12 +629,39 @@ async function carregarChamados(container) {
     });
 }
 
+async function imprimirRelatorioChamados() {
+    const { data: chamados } = await supabaseClient.from('chamados').select('*').order('id', { ascending: false });
+    const htmlTabela = `
+        <table>
+            <thead>
+                <tr><th>#ID</th><th>Solicitante</th><th>Categoria</th><th>Descrição</th><th>Prioridade</th><th>Status</th><th>Data</th></tr>
+            </thead>
+            <tbody>
+                ${(chamados || []).map(c => `
+                    <tr>
+                        <td>#${c.id}</td>
+                        <td>${escapeHTML(c.solicitante_nome)}</td>
+                        <td>${escapeHTML(c.categoria)}</td>
+                        <td>${escapeHTML(c.descricao)}</td>
+                        <td>${escapeHTML(c.prioridade || 'Média')}</td>
+                        <td><b>${escapeHTML(c.status)}</b></td>
+                        <td>${new Date(c.created_at).toLocaleString('pt-BR')}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    dispararImpressao('Central de Chamados', htmlTabela);
+}
+
 async function fecharChamado(id) {
     await supabaseClient.from('chamados').update({ status: 'Concluído' }).eq('id', id);
     carregarChamados(document.getElementById('conteudo-pagina'));
 }
 
+// ==========================================
 // 4. MEUS CHAMADOS
+// ==========================================
 async function carregarMeusChamados(container) {
     container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando seus chamados...</div>`;
 
@@ -388,16 +671,23 @@ async function carregarMeusChamados(container) {
         .eq('solicitante_id', usuarioLogado.id)
         .order('id', { ascending: false });
 
+    const listaMeus = meus || [];
+
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
-            <h3 class="font-bold text-slate-900 text-sm mb-4">Meus Chamados Solicitados</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-900 text-sm">Meus Chamados Solicitados</h3>
+                <button onclick="imprimirRelatorioMeusChamados()" class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-print"></i> Imprimir Relatório
+                </button>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-700">
                     <thead class="bg-slate-50 uppercase text-[10px] text-slate-500">
                         <tr><th class="p-3">#ID</th><th class="p-3">Categoria</th><th class="p-3">Descrição</th><th class="p-3">Status</th></tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        ${(meus || []).length > 0 ? (meus || []).map(c => `
+                        ${listaMeus.length > 0 ? listaMeus.map(c => `
                             <tr>
                                 <td class="p-3 font-bold">#${c.id}</td>
                                 <td class="p-3">${escapeHTML(c.categoria)}</td>
@@ -412,20 +702,56 @@ async function carregarMeusChamados(container) {
     `;
 }
 
+async function imprimirRelatorioMeusChamados() {
+    const { data: meus } = await supabaseClient
+        .from('chamados')
+        .select('*')
+        .eq('solicitante_id', usuarioLogado.id)
+        .order('id', { ascending: false });
+
+    const htmlTabela = `
+        <table>
+            <thead>
+                <tr><th>#ID</th><th>Categoria</th><th>Descrição</th><th>Status</th><th>Data</th></tr>
+            </thead>
+            <tbody>
+                ${(meus || []).map(c => `
+                    <tr>
+                        <td>#${c.id}</td>
+                        <td>${escapeHTML(c.categoria)}</td>
+                        <td>${escapeHTML(c.descricao)}</td>
+                        <td><b>${escapeHTML(c.status)}</b></td>
+                        <td>${new Date(c.created_at).toLocaleString('pt-BR')}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    dispararImpressao(`Meus Chamados (${escapeHTML(perfilUsuarioLogado.nome)})`, htmlTabela);
+}
+
+// ==========================================
 // 5. GERENCIAR USUÁRIOS
+// ==========================================
 async function carregarUsuarios(container) {
     const { data: perfis } = await supabaseClient.from('perfis').select('*');
+    const listaPerfis = perfis || [];
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
-            <h3 class="font-bold text-slate-900 text-sm mb-4">Usuários Cadastrados no Banco</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-900 text-sm">Usuários Cadastrados no Banco</h3>
+                <button onclick="imprimirRelatorioUsuarios()" class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-print"></i> Imprimir Relatório
+                </button>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-700">
                     <thead class="bg-slate-50 uppercase text-[10px] text-slate-500">
                         <tr><th class="p-3">Nome / Usuário</th><th class="p-3">Setor</th><th class="p-3">Perfil</th></tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        ${(perfis || []).map(u => `
+                        ${listaPerfis.map(u => `
                             <tr>
                                 <td class="p-3 font-bold">${escapeHTML(u.nome)}<br><span class="font-normal text-slate-400">@${escapeHTML(u.usuario)}</span></td>
                                 <td class="p-3">${escapeHTML(u.setor || 'N/A')}</td>
@@ -439,15 +765,45 @@ async function carregarUsuarios(container) {
     `;
 }
 
-// 6. CATEGORIAS
+async function imprimirRelatorioUsuarios() {
+    const { data: perfis } = await supabaseClient.from('perfis').select('*');
+    const htmlTabela = `
+        <table>
+            <thead>
+                <tr><th>Nome</th><th>Usuário</th><th>Setor</th><th>Perfil</th></tr>
+            </thead>
+            <tbody>
+                ${(perfis || []).map(u => `
+                    <tr>
+                        <td><b>${escapeHTML(u.nome)}</b></td>
+                        <td>@${escapeHTML(u.usuario)}</td>
+                        <td>${escapeHTML(u.setor || 'N/A')}</td>
+                        <td>${escapeHTML(u.perfil)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    dispararImpressao('Relatório de Usuários e Perfis', htmlTabela);
+}
+
+// ==========================================
+// 6. CATEGORIAS E SUBCATEGORIAS
+// ==========================================
 async function carregarCategorias(container) {
     const { data: categorias } = await supabaseClient.from('categorias_problema').select('*');
+    const listaCategorias = categorias || [];
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
-            <h3 class="font-bold text-slate-900 text-sm mb-4">Categorias Mapeadas</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-900 text-sm">Categorias Mapeadas</h3>
+                <button onclick="imprimirRelatorioCategorias()" class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-print"></i> Imprimir Relatório
+                </button>
+            </div>
             <ul class="divide-y divide-slate-100">
-                ${(categorias || []).map(c => `
+                ${listaCategorias.map(c => `
                     <li class="py-3 flex justify-between items-center text-xs">
                         <span class="font-bold text-slate-800">${escapeHTML(c.nome)}</span>
                     </li>
@@ -457,20 +813,48 @@ async function carregarCategorias(container) {
     `;
 }
 
+async function imprimirRelatorioCategorias() {
+    const { data: categorias } = await supabaseClient.from('categorias_problema').select('*');
+    const htmlTabela = `
+        <table>
+            <thead>
+                <tr><th>#ID</th><th>Nome da Categoria</th></tr>
+            </thead>
+            <tbody>
+                ${(categorias || []).map(c => `
+                    <tr>
+                        <td>#${c.id}</td>
+                        <td><b>${escapeHTML(c.nome)}</b></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    dispararImpressao('Mapeamento de Categorias', htmlTabela);
+}
+
+// ==========================================
 // 7. SETORES E LIBERAÇÕES
+// ==========================================
 async function carregarSetores(container) {
     const { data: setores } = await supabaseClient.from('setores_liberacoes').select('*');
+    const listaSetores = setores || [];
 
     container.innerHTML = `
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full">
-            <h3 class="font-bold text-slate-900 text-sm mb-4">Setores e Permissões</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-900 text-sm">Setores e Permissões</h3>
+                <button onclick="imprimirRelatorioSetores()" class="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-print"></i> Imprimir Relatório
+                </button>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-700">
                     <thead class="bg-slate-50 uppercase text-[10px] text-slate-500">
                         <tr><th class="p-3">#ID</th><th class="p-3">Setor</th><th class="p-3">Regra de Liberação</th></tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        ${(setores || []).map(s => `
+                        ${listaSetores.map(s => `
                             <tr>
                                 <td class="p-3 font-bold">#${s.id}</td>
                                 <td class="p-3 font-bold text-slate-900">${escapeHTML(s.nome)}</td>
@@ -482,4 +866,25 @@ async function carregarSetores(container) {
             </div>
         </div>
     `;
+}
+
+async function imprimirRelatorioSetores() {
+    const { data: setores } = await supabaseClient.from('setores_liberacoes').select('*');
+    const htmlTabela = `
+        <table>
+            <thead>
+                <tr><th>#ID</th><th>Nome do Setor</th><th>Regra / Tipo de Liberação</th></tr>
+            </thead>
+            <tbody>
+                ${(setores || []).map(s => `
+                    <tr>
+                        <td>#${s.id}</td>
+                        <td><b>${escapeHTML(s.nome)}</b></td>
+                        <td>${escapeHTML(s.tipo_liberacao)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    dispararImpressao('Estrutura de Setores e Liberações', htmlTabela);
 }
