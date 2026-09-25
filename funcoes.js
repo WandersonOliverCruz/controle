@@ -156,7 +156,6 @@ function configurarLogin() {
 async function carregarPerfilEIniciar(user) {
     usuarioLogado = user;
 
-    // Busca dados complementares na tabela 'perfis'
     const { data, error } = await supabaseClient
         .from('perfis')
         .select('*')
@@ -164,9 +163,8 @@ async function carregarPerfilEIniciar(user) {
         .single();
 
     if (error || !data) {
-        // Se for o seu e-mail principal, força o perfil de ADM
         perfilUsuarioLogado = {
-            nome: user.email ? user.email.split('@')[0] : 'Admin',
+            nome: user.email ? user.email.split('@')[0] : 'Usuário',
             perfil: 'ADM',
             permissoes: MODULOS_SISTEMA.map(m => m.id)
         };
@@ -183,7 +181,6 @@ async function carregarPerfilEIniciar(user) {
 
     construirMenu();
     navegarPara(paginaAtual);
-}
 }
 
 function construirMenu() {
@@ -884,7 +881,7 @@ async function carregarUsuarios(container) {
 
         msgErro.classList.add('hidden');
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Cadastrating...`;
+        btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Cadastrando...`;
 
         try {
             const { data: authData, error: authError } = await supabaseClient.auth.signUp({
@@ -920,6 +917,73 @@ async function carregarUsuarios(container) {
             btnSubmit.innerHTML = `Cadastrar Usuário`;
         }
     });
+}
+
+function abrirModalEditarPermissao(id, nome, perfil, setor, permissoesStr) {
+    document.getElementById('edit-usr-id').value = id;
+    document.getElementById('modal-usr-titulo').textContent = `Alterar Permissões: ${nome}`;
+    document.getElementById('edit-usr-perfil').value = perfil;
+    document.getElementById('edit-usr-setor').value = setor;
+
+    const listaPermissoes = permissoesStr ? permissoesStr.split(',') : [];
+    const checkboxes = document.querySelectorAll('.chk-edit-perm');
+    checkboxes.forEach(cb => {
+        cb.checked = listaPermissoes.includes(cb.value);
+    });
+
+    document.getElementById('modal-editar-permissao').classList.remove('hidden');
+}
+
+function fecharModalEditar() {
+    document.getElementById('modal-editar-permissao').classList.add('hidden');
+}
+
+async function salvarAlteracaoPermissao() {
+    const id = document.getElementById('edit-usr-id').value;
+    const perfil = document.getElementById('edit-usr-perfil').value;
+    const setor = document.getElementById('edit-usr-setor').value;
+
+    const checkboxes = document.querySelectorAll('.chk-edit-perm:checked');
+    const permissoes = Array.from(checkboxes).map(cb => cb.value);
+
+    const { error } = await supabaseClient
+        .from('perfis')
+        .update({
+            perfil: perfil,
+            setor: setor,
+            permissoes: permissoes
+        })
+        .eq('id', id);
+
+    if (error) {
+        alert('Erro ao atualizar permissões: ' + error.message);
+    } else {
+        alert('Permissões do usuário atualizadas com sucesso!');
+        fecharModalEditar();
+        carregarUsuarios(document.getElementById('conteudo-pagina'));
+    }
+}
+
+async function imprimirRelatorioUsuarios() {
+    const { data: perfis } = await supabaseClient.from('perfis').select('*');
+    const htmlTabela = `
+        <table>
+            <thead>
+                <tr><th>Nome</th><th>Usuário</th><th>Setor</th><th>Perfil</th></tr>
+            </thead>
+            <tbody>
+                ${(perfis || []).map(u => `
+                    <tr>
+                        <td><b>${escapeHTML(u.nome)}</b></td>
+                        <td>@${escapeHTML(u.usuario)}</td>
+                        <td>${escapeHTML(u.setor || 'N/A')}</td>
+                        <td>${escapeHTML(u.perfil)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    dispararImpressao('Relatório de Usuários e Perfis', htmlTabela);
 }
 
 // ==========================================
