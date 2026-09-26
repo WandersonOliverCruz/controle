@@ -889,3 +889,187 @@ async function imprimirRelatorioSetores() {
     dispararImpressao('Estrutura de Setores e Liberações', htmlTabela);
 }
 
+// ==========================================
+// 8. CONFIGURAÇÕES AVANÇADAS (DB + IMAGENS)
+// ==========================================
+async function carregarConfiguracoes(container) {
+    container.innerHTML = `<div class="p-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Carregando configurações...</div>`;
+
+    // Busca as preferências salvas no Banco de Dados para o usuário logado
+    const { data: perfil } = await supabaseClient
+        .from('perfis')
+        .select('config_cor, config_sombra, config_fonte, config_logo, config_fundo')
+        .eq('id', usuarioLogado.id)
+        .single();
+
+    const cfg = perfil || {};
+    const corAtual = cfg.config_cor || '#37a928';
+    const corSombraAtual = cfg.config_sombra || '#287d1c';
+    const fonteAtual = cfg.config_fonte || 'Inter, sans-serif';
+
+    container.innerHTML = `
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 w-full max-w-2xl mx-auto">
+            <div class="mb-6">
+                <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-emerald-600"></i> Personalização do Sistema (Salva na Nuvem)
+                </h3>
+                <p class="text-xs text-slate-500">Altere cores, fontes, logotipo e a imagem de fundo do painel e login.</p>
+            </div>
+
+            <form onsubmit="salvarConfiguracoesDB(event)" class="space-y-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="rotulo">Cor Principal</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" id="cfg-cor" value="${corAtual}" class="w-12 h-10 rounded-xl border border-slate-300 cursor-pointer p-1 bg-white">
+                            <span class="text-xs text-slate-500">Cor de destaque</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="rotulo">Cor da Sombra (3D)</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" id="cfg-cor-sombra" value="${corSombraAtual}" class="w-12 h-10 rounded-xl border border-slate-300 cursor-pointer p-1 bg-white">
+                            <span class="text-xs text-slate-500">Tom de profundidade</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="rotulo">Fonte do Sistema</label>
+                    <select id="cfg-fonte" class="campo">
+                        <option value="Inter, sans-serif" ${fonteAtual.includes('Inter') ? 'selected' : ''}>Inter (Padrão)</option>
+                        <option value="Roboto, sans-serif" ${fonteAtual.includes('Roboto') ? 'selected' : ''}>Roboto</option>
+                        <option value="Segoe UI, sans-serif" ${fonteAtual.includes('Segoe UI') ? 'selected' : ''}>Segoe UI</option>
+                        <option value="Poppins, sans-serif" ${fonteAtual.includes('Poppins') ? 'selected' : ''}>Poppins</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+                    <div>
+                        <label class="rotulo">Logotipo do Sistema</label>
+                        <input type="file" id="cfg-file-logo" accept="image/*" class="campo text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                        ${cfg.config_logo ? `<p class="text-[10px] text-emerald-600 mt-1"><i class="fa-solid fa-check"></i> Logo atual salva</p>` : ''}
+                    </div>
+                    <div>
+                        <label class="rotulo">Imagem de Fundo (Login / Sistema)</label>
+                        <input type="file" id="cfg-file-fundo" accept="image/*" class="campo text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                        ${cfg.config_fundo ? `<p class="text-[10px] text-emerald-600 mt-1"><i class="fa-solid fa-check"></i> Fundo atual salvo</p>` : ''}
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
+                    <button type="submit" class="btn btn-primario" id="btn-salvar-cfg">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Salvar no Banco de Dados
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+async function salvarConfiguracoesDB(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btn-salvar-cfg');
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Salvando...`;
+    btn.disabled = true;
+
+    const novaCor = document.getElementById('cfg-cor').value;
+    const novaSombra = document.getElementById('cfg-cor-sombra').value;
+    const novaFonte = document.getElementById('cfg-fonte').value;
+
+    const fileLogo = document.getElementById('cfg-file-logo').files[0];
+    const fileFundo = document.getElementById('cfg-file-fundo').files[0];
+
+    let urlLogo = null;
+    let urlFundo = null;
+
+    try {
+        // Upload da Logo se selecionada
+        if (fileLogo) {
+            const fileName = `logo_${usuarioLogado.id}_${Date.now()}`;
+            const { data, error } = await supabaseClient.storage.from('sistema-assets').upload(fileName, fileLogo);
+            if (error) throw error;
+            const { data: pubUrl } = supabaseClient.storage.from('sistema-assets').getPublicUrl(fileName);
+            urlLogo = pubUrl.publicUrl;
+        }
+
+        // Upload do Fundo se selecionado
+        if (fileFundo) {
+            const fileName = `fundo_${usuarioLogado.id}_${Date.now()}`;
+            const { data, error } = await supabaseClient.storage.from('sistema-assets').upload(fileName, fileFundo);
+            if (error) throw error;
+            const { data: pubUrl } = supabaseClient.storage.from('sistema-assets').getPublicUrl(fileName);
+            urlFundo = pubUrl.publicUrl;
+        }
+
+        // Prepara objeto para atualizar no DB
+        const dadosUpdate = {
+            config_cor: novaCor,
+            config_sombra: novaSombra,
+            config_fonte: novaFonte
+        };
+        if (urlLogo) dadosUpdate.config_logo = urlLogo;
+        if (urlFundo) dadosUpdate.config_fundo = urlFundo;
+
+        // Atualiza na tabela perfis
+        const { error: errDB } = await supabaseClient
+            .from('perfis')
+            .update(dadosUpdate)
+            .eq('id', usuarioLogado.id);
+
+        if (errDB) throw errDB;
+
+        alert('Configurações salvas e sincronizadas com sucesso!');
+        aplicarConfiguracoesDoUsuario(dadosUpdate);
+        carregarConfiguracoes(document.getElementById('conteudo-pagina'));
+
+    } catch (err) {
+        alert('Erro ao salvar configurações: ' + err.message);
+    } finally {
+        btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Salvar no Banco de Dados`;
+        btn.disabled = false;
+    }
+}
+
+// Função para aplicar visualmente as configurações carregadas do Banco
+function aplicarConfiguracoesDoUsuario(cfg) {
+    if (!cfg) return;
+    const root = document.documentElement;
+
+    if (cfg.config_cor) {
+        root.style.setProperty('--cor-principal', cfg.config_cor);
+        root.style.setProperty('--cor-btn-primario', cfg.config_cor);
+    }
+    if (cfg.config_sombra) {
+        root.style.setProperty('--cor-btn-primario-sombra', cfg.config_sombra);
+    }
+    if (cfg.config_fonte) {
+        document.body.style.fontFamily = cfg.config_fonte;
+    }
+    if (cfg.config_fundo) {
+        // Altera a imagem de fundo global se houver elementos de fundo no DOM
+        const fundos = document.querySelectorAll('.fundo-sistema-personalizado, .fundo-personalizado');
+        fundos.forEach(el => el.style.backgroundImage = `url('${cfg.config_fundo}')`);
+    }
+    if (cfg.config_logo) {
+        // Altera logos de placeholder se existirem
+        const logos = document.querySelectorAll('.login-logo-placeholder, .sidebar-logo-placeholder');
+        logos.forEach(el => {
+            el.innerHTML = `<img src="${cfg.config_logo}" class="w-full h-full object-cover rounded-xl" alt="Logo">`;
+            el.style.background = 'transparent';
+            el.style.boxShadow = 'none';
+        });
+    }
+}
+
+// Ao fazer login ou carregar a sessão, busca as configurações do DB e aplica
+async function carregarConfiguracoesIniciaisDoDB() {
+    if (!usuarioLogado || !usuarioLogado.id) return;
+    const { data: perfil } = await supabaseClient
+        .from('perfis')
+        .select('config_cor, config_sombra, config_fonte, config_logo, config_fundo')
+        .eq('id', usuarioLogado.id)
+        .single();
+
+    if (perfil) aplicarConfiguracoesDoUsuario(perfil);
+}
