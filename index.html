@@ -51,6 +51,25 @@
     </div>
 
     <div id="sistema" class="hidden sistema-container">
+        <!-- BOTÃO HAMBÚRGUER (Aparece apenas em celulares / telas 'sm' e 'md') -->
+<div class="lg:hidden flex items-center justify-between p-4 bg-slate-900 text-white border-b border-slate-800">
+    <div class="flex items-center gap-2">
+        <i class="fa-solid fa-headset text-indigo-500"></i>
+        <span class="font-bold text-sm">Gestão de TI</span>
+    </div>
+    <button id="btn-toggle-menu" onclick="toggleMenuMobile()" class="p-2 text-slate-300 hover:text-white rounded-lg focus:outline-none">
+        <i class="fa-solid fa-bars text-xl"></i>
+    </button>
+</div>
+
+<!-- OVERLAY PARA FECHAR O MENU EM CELULARES (Sombra de fundo ao abrir menu) -->
+<div id="overlay-menu" onclick="toggleMenuMobile()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 hidden lg:hidden"></div>
+
+<!-- SIDEBAR (Ajustada para Overlay no Mobile e Fixa no Desktop) -->
+<aside id="sidebar-principal" class="fixed top-0 left-0 bottom-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 -translate-x-full lg:translate-x-0">
+    <!-- Conteúdo da Sidebar (Logo, Usuário, Menu) -->
+    ...
+</aside>
         <div class="fundo-sistema-personalizado"></div>
         <div class="camada-sistema-sobreposicao"></div>
         
