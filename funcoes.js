@@ -7,7 +7,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_BJ7VdB4lwxbrSoQa-hFDXw_XdOIkk-r";
 
 // Utiliza 'supabaseClient' para evitar conflitos com a biblioteca global da CDN
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+const supabaseAdminClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+        persistSession: false // Não substitui a sessão do Administrador no navegador
+    }
 const CONFIG = {
     sistemaNome: "Sistema TI"
 };
